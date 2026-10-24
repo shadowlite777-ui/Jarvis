@@ -1,20 +1,16 @@
 pluginManagement {
-    def flutterSdkPath = System.getenv("FLUTTER_ROOT")
-    if (flutterSdkPath == null) {
+    def flutterSdkPath = {
         def properties = new Properties()
         def propertiesFile = new File('local.properties')
         if (propertiesFile.exists()) {
             properties.load(new FileInputStream(propertiesFile))
-            flutterSdkPath = properties.getProperty('flutter.sdk')
         }
-    }
-    
-    // Если путь всё еще не найден, пытаемся получить его через системное окружение flutter
-    if (flutterSdkPath == null) {
-        try {
-            flutterSdkPath = 'flutter'.execute().text.readLines().find { it.contains('Flutter SDK path:') }?.replaceAll('Flutter SDK path:', '')?.trim()
-        } catch (Exception ignored) {}
-    }
+        def flutterSdkPath = properties.getProperty('flutter.sdk')
+        if (flutterSdkPath == null) {
+            flutterSdkPath = System.getenv("FLUTTER_ROOT")
+        }
+        return flutterSdkPath
+    }()
 
     if (flutterSdkPath != null) {
         includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
@@ -24,14 +20,6 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
-        if (flutterSdkPath != null) {
-            maven {
-                url "$flutterSdkPath/bin/cache/artifacts/engine-gradle-maven"
-            }
-            maven {
-                url "$flutterSdkPath/packages/flutter_tools/gradle"
-            }
-        }
     }
 }
 
