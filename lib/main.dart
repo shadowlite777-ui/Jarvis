@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 void main() {
   runApp(const MyApp());
@@ -37,9 +39,75 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   static const platform = MethodChannel('com.example.jarvis/service');
 
+  late FlutterTts _flutterTts;
+  late stt.SpeechToText _speech;
+  bool _isListening = false;
+  String _lastWords = 'Нажмите кнопку микрофона и скажите что-нибудь...';
+
+  @override
+  void initState() {
+    super.initState();
+    _initTts();
+    _initSpeech();
+  }
+
+  // Инициализация синтеза речи (Голос Джарвиса)
+  void _initTts() {
+    _flutterTts = FlutterTts();
+    _flutterTts.setLanguage("ru-RU");
+    _flutterTts.setSpeechRate(0.5);
+    _flutterTts.setVolume(1.0);
+    _flutterTts.setPitch(1.0);
+  }
+
+  Future<void> _speak(String text) async {
+    await _flutterTts.speak(text);
+  }
+
+  // Инициализация распознавания речи (Слух Джарвиса)
+  void _initSpeech() async {
+    _speech = stt.SpeechToText();
+  }
+
+  void _listen() async {
+    if (!_isListening) {
+      bool available = await _speech.initialize(
+        onStatus: (val) => debugPrint('onStatus: $val'),
+        onError: (val) => debugPrint('onError: $val'),
+      );
+      if (available) {
+        setState(() => _isListening = true);
+        _speech.listen(
+          localeId: "ru_RU",
+          onResult: (val) => setState(() {
+            _lastWords = val.recognizedWords;
+            if (val.hasFinalResult && _lastWords.isNotEmpty) {
+              _isListening = false;
+              _processCommand(_lastWords);
+            }
+          }),
+        );
+      }
+    } else {
+      setState(() => _isListening = false);
+      _speech.stop();
+    }
+  }
+
+  // Простейший обработчик команд для проверки
+  void _processCommand(String command) {
+    String lowerCmd = command.toLowerCase();
+    if (lowerCmd.contains('привет') || lowerCmd.contains('джарвис')) {
+      _speak("Сэр, системы активны. Чем могу помочь?");
+    } else {
+      _speak("Я услышал команду: $command");
+    }
+  }
+
   Future<void> _startService() async {
     try {
       await platform.invokeMethod('startService');
+      _speak("Фоновый сервис запущен.");
     } on PlatformException catch (e) {
       debugPrint("Failed to start service: '${e.message}'.");
     }
@@ -75,11 +143,35 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
-                'Джарвис: Статус ядра',
+                'Джарвис: Речевой модуль',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: Colors.orange,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF222222),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                ),
+                child: Text(
+                  _lastWords,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16, color: Colors.white70),
+                ),
+              ),
+              const SizedBox(height: 30),
+              FloatingActionButton(
+                onPressed: _listen,
+                backgroundColor: Colors.orange,
+                child: Icon(
+                  _isListening ? Icons.mic : Icons.mic_none,
+                  color: Colors.black,
+                  size: 28,
                 ),
               ),
               const SizedBox(height: 40),
