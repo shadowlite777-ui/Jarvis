@@ -25,7 +25,7 @@ class ForegroundService : Service() {
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Джарвис активен")
             .setContentText("Фоновый сервис ассистента работает")
-            .setSmallIcon(android.R.drawable.ic_menu_mic)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
