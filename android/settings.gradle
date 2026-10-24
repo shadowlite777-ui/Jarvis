@@ -1,1 +1,32 @@
+
+pluginManagement {
+    def flutterSdkPath = System.getenv("FLUTTER_ROOT")
+    if (flutterSdkPath == null) {
+        throw new GradleException("A Flutter SDK path was not found. Please set the FLUTTER_ROOT environment variable.")
+    }
+
+    includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
+
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
 include ":app"
+
+// Автоматическое подключение плагинов Flutter
+def flutterProjectRoot = rootProject.projectDir.parentFile
+def pluginsFile = new File(flutterProjectRoot, '.flutter-plugins')
+if (pluginsFile.exists()) {
+    pluginsFile.text.eachLine { line ->
+        if (!line.startsWith('#') && line.contains('=')) {
+            def parts = line.split('=')
+            def pluginName = parts[0]
+            def pluginPath = parts[1]
+            include ":$pluginName"
+            project(":$pluginName").projectDir = new File(pluginPath, 'android')
+        }
+    }
+}
