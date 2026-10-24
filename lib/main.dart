@@ -42,7 +42,8 @@ class _HomePageState extends State<HomePage> {
   late FlutterTts _flutterTts;
   late stt.SpeechToText _speech;
   bool _isListening = false;
-  String _lastWords = 'Нажмите кнопку микрофона и скажите что-нибудь...';
+  String _lastWords = 'Нажмите микрофон и скажите: "Джарвис, привет"';
+  String _selectedLocaleId = 'ru_RU';
 
   @override
   void initState() {
@@ -51,37 +52,53 @@ class _HomePageState extends State<HomePage> {
     _initSpeech();
   }
 
-  // Инициализация синтеза речи (Голос Джарвиса)
-  void _initTts() {
+  // Настройка голоса «Джарвиса»
+  void _initTts() async {
     _flutterTts = FlutterTts();
-    _flutterTts.setLanguage("ru-RU");
-    _flutterTts.setSpeechRate(0.5);
-    _flutterTts.setVolume(1.0);
-    _flutterTts.setPitch(1.0);
+    
+    // Пытаемся найти русский язык для синтеза
+    await _flutterTts.setLanguage("ru-RU");
+    
+    // Тон Джарвиса: делаем голос глуше и солиднее (норма 1.0, ниже — грубее)
+    await _flutterTts.setPitch(0.68); 
+    // Четкий, размеренный темп речи
+    await _flutterTts.setSpeechRate(0.52);
+    await _flutterTts.setVolume(1.0);
   }
 
   Future<void> _speak(String text) async {
     await _flutterTts.speak(text);
   }
 
-  // Инициализация распознавания речи (Слух Джарвиса)
+  // Инициализация слуха с автоопределением русской локали
   void _initSpeech() async {
     _speech = stt.SpeechToText();
+    bool available = await _speech.initialize(
+      onStatus: (val) => debugPrint('onStatus: $val'),
+      onError: (val) => debugPrint('onError: $val'),
+    );
+    
+    if (available) {
+      var locales = await _speech.locales();
+      // Ищем локаль, содержащую 'ru' (например ru_RU или ru-RU)
+      var russians = locales.where((l) => l.localeId.toLowerCase().contains('ru')).toList();
+      if (russians.isNotEmpty) {
+        setState(() {
+          _selectedLocaleId = russians.first.localeId;
+        });
+      }
+    }
   }
 
   void _listen() async {
     if (!_isListening) {
-      bool available = await _speech.initialize(
-        onStatus: (val) => debugPrint('onStatus: $val'),
-        onError: (val) => debugPrint('onError: $val'),
-      );
+      bool available = await _speech.initialize();
       if (available) {
         setState(() => _isListening = true);
         _speech.listen(
-          localeId: "ru_RU",
+          localeId: _selectedLocaleId,
           onResult: (val) => setState(() {
             _lastWords = val.recognizedWords;
-            // Исправлено: сменено с hasFinalResult на finalResult
             if (val.finalResult && _lastWords.isNotEmpty) {
               _isListening = false;
               _processCommand(_lastWords);
@@ -95,20 +112,22 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Простейший обработчик команд для проверки
+  // Обработка команд в стиле Джарвиса
   void _processCommand(String command) {
     String lowerCmd = command.toLowerCase();
     if (lowerCmd.contains('привет') || lowerCmd.contains('джарвис')) {
-      _speak("Сэр, системы активны. Чем могу помочь?");
+      _speak("Сэр, системы функционируют нормально. Чем могу помочь?");
+    } else if (lowerCmd.contains('статус') || lowerCmd.contains('как дела')) {
+      _speak("Все подсистемы активны, сэр. Ядро работает в штатном режиме.");
     } else {
-      _speak("Я услышал команду: $command");
+      _speak("Команда принята, сэр. Распознано: $command");
     }
   }
 
   Future<void> _startService() async {
     try {
       await platform.invokeMethod('startService');
-      _speak("Фоновый сервис запущен.");
+      _speak("Фоновый протокол активирован, сэр.");
     } on PlatformException catch (e) {
       debugPrint("Failed to start service: '${e.message}'.");
     }
@@ -134,7 +153,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Jarvis Control Panel'),
+        title: const Text('Jarvis Core System'),
         backgroundColor: const Color(0xFF111111),
       ),
       body: Center(
@@ -144,7 +163,7 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
-                'Джарвис: Речевой модуль',
+                'Идентификация речи (RU)',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
