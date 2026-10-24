@@ -1,8 +1,20 @@
-plugins {
-    id "com.android.application"
-    id "kotlin-android"
-    id "dev.flutter.flutter-gradle-plugin"
+def localProperties = new Properties()
+def localPropertiesFile = new File(rootProject.projectDir, 'local.properties')
+if (localPropertiesFile.exists()) {
+    localProperties.load(new FileInputStream(localPropertiesFile))
 }
+
+def flutterRoot = localProperties.getProperty('flutter.sdk')
+if (flutterRoot == null) {
+    flutterRoot = System.getenv("FLUTTER_ROOT")
+}
+if (flutterRoot == null) {
+    throw new GradleException("Flutter SDK not found. Define location with FLUTTER_ROOT environment variable.")
+}
+
+apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
 android {
     namespace "com.example.jarvis"
