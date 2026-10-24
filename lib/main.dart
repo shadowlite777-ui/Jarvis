@@ -81,7 +81,8 @@ class _HomePageState extends State<HomePage> {
           localeId: "ru_RU",
           onResult: (val) => setState(() {
             _lastWords = val.recognizedWords;
-            if (val.hasFinalResult && _lastWords.isNotEmpty) {
+            // Исправлено: сменено с hasFinalResult на finalResult
+            if (val.finalResult && _lastWords.isNotEmpty) {
               _isListening = false;
               _processCommand(_lastWords);
             }
