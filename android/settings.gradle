@@ -6,11 +6,20 @@ pluginManagement {
             properties.load(new FileInputStream(propertiesFile))
         }
         def flutterSdkPath = properties.getProperty('flutter.sdk')
+        if (flutterSdkPath == null) {
+            flutterSdkPath = System.getenv("FLUTTER_ROOT")
+        }
         return flutterSdkPath
     }()
 
     if (flutterSdkPath != null) {
         includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
+    }
+
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
     }
 }
 
