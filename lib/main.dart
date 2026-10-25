@@ -49,7 +49,7 @@ class _HomePageState extends State<HomePage> {
 
   // Настройки Yandex AI Studio
   final String _apiKey = "AQVN2l_n2_ustApPTXgKhT_bYo6bBhiz8Nnw1A9T";  // Ваш API-ключ
-  final String _folderId = "organization-blizzard-274"; // Ваш Folder ID (например, b1g...)
+  final String _folderId = "b1g20jj780fsmdquls09"; // Ваш Folder ID (например, b1g...)
   final String _apiUrl = "https://ai.api.cloud.yandex.net/v1/chat/completions";
 
   @override
