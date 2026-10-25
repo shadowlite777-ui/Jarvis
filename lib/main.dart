@@ -107,10 +107,14 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Получение OAuth-токена GigaChat с выводом ошибки на экран
+    // Получение OAuth-токена GigaChat с полным выводом ответа сервера
   Future<String?> _getGigaChatToken() async {
     try {
       final client = _createCustomClient();
+      
+      // Попробуйте изменить scope на "GIGACHAT_API_B2B", если у вас корпоративный аккаунт
+      const String currentScope = "GIGACHAT_API_PERS"; 
+
       final response = await client.post(
         Uri.parse('https://ngw.devices.sberbank.ru:9443/api/v2/oauth'),
         headers: {
@@ -119,17 +123,17 @@ class _HomePageState extends State<HomePage> {
           'RqUID': DateTime.now().millisecondsSinceEpoch.toString(),
           'Authorization': 'Basic $_authorizationKey',
         },
-        body: {'scope': 'GIGACHAT_API_PERS'},
+        body: {'scope': currentScope},
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['access_token'];
       } else {
-        debugPrint("Token Error: ${response.body}");
+        debugPrint("Token Error Body: ${response.body}");
         setState(() {
           _isThinking = false;
-          _lastWords = "Ошибка токена (${response.statusCode}):\n${response.body}";
+          _lastWords = "Ошибка 400 от Сбера:\n${response.body}";
         });
         return null;
       }
@@ -137,11 +141,12 @@ class _HomePageState extends State<HomePage> {
       debugPrint("Token Exception: $e");
       setState(() {
         _isThinking = false;
-        _lastWords = "Исключение токена: $e";
+        _lastWords = "Исключение: $e";
       });
       return null;
     }
   }
+
 
 
   // Запрос к GigaChat API
