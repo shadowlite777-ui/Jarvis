@@ -47,9 +47,9 @@ class _HomePageState extends State<HomePage> {
   bool _isThinking = false;
   String _lastWords = 'Нажмите микрофон и отдайте приказ, сэр.';
 
-  // Настройки LLM (сюда можно подставить ваш ключ и URL, например OpenAI или OpenRouter)
-  final String _apiKey = "YOUR_API_KEY_HERE"; 
-  final String _apiUrl = "https://api.openai.com/v1/chat/completions";
+  // Настройки DeepSeek API
+  final String _apiKey = "sk-4439b4053b054e0b8aa2f60c72a9b095"; 
+  final String _apiUrl = "https://api.deepseek.com/chat/completions";
 
   @override
   void initState() {
@@ -99,18 +99,18 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Интеллектуальный обработчик через LLM (Мозг Джарвиса)
+  // Запрос к DeepSeek API
   Future<void> _processCommandWithLLM(String command) async {
     setState(() {
       _isThinking = true;
-      _lastWords = "Запрос: \"$command\"\n[Обработка нейросетью...]";
+      _lastWords = "Запрос: \"$command\"\n[DeepSeek думает...]";
     });
 
-    if (_apiKey == "YOUR_API_KEY_HERE") {
+    if (_apiKey == "YOUR_DEEPSEEK_API_KEY_HERE") {
       setState(() {
         _isThinking = false;
       });
-      _speak("Сэр, не настроен ключ доступа к нейросети. Укажите API ключ в коде.");
+      _speak("Сэр, не указан API-ключ DeepSeek. Введите его в настройках кода.");
       return;
     }
 
@@ -122,7 +122,7 @@ class _HomePageState extends State<HomePage> {
           'Authorization': 'Bearer $_apiKey',
         },
         body: jsonEncode({
-          "model": "gpt-4o-mini",
+          "model": "deepseek-chat", // Основная языковая модель DeepSeek (V3)
           "messages": [
             {
               "role": "system",
@@ -134,7 +134,7 @@ class _HomePageState extends State<HomePage> {
             }
           ],
           "max_tokens": 100,
-          "temperature": 0.7,
+          "stream": false
         }),
       );
 
@@ -152,14 +152,15 @@ class _HomePageState extends State<HomePage> {
         
         _speak(answer);
       } else {
-        _speak("Сэр, произошла ошибка связи с сервером нейросети.");
+        debugPrint("API Error: ${response.body}");
+        _speak("Сэр, ошибка ответа сервера DeepSeek.");
       }
     } catch (e) {
       setState(() {
         _isThinking = false;
       });
       _speak("Сэр, сбой выполнения системного запроса.");
-      debugPrint("LLM Error: $e");
+      debugPrint("DeepSeek Error: $e");
     }
   }
 
@@ -192,7 +193,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Jarvis Core System (LLM)'),
+        title: const Text('Jarvis Core (DeepSeek)'),
         backgroundColor: const Color(0xFF111111),
       ),
       body: Center(
@@ -202,7 +203,7 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
-                'Нейросетевое ядро',
+                'Нейроядро: DeepSeek',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -239,7 +240,7 @@ class _HomePageState extends State<HomePage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleForm(
+                  style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -252,7 +253,7 @@ class _HomePageState extends State<HomePage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleForm(
+                  style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2A2A2A),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -265,7 +266,7 @@ class _HomePageState extends State<HomePage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleForm(
+                  style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2A2A2A),
                     foregroundColor: Colors.orange,
                     padding: const EdgeInsets.symmetric(vertical: 14),
