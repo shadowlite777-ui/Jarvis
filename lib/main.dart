@@ -47,9 +47,7 @@ class _HomePageState extends State<HomePage> {
   bool _isThinking = false;
   String _lastWords = 'Нажмите микрофон и отдайте приказ, сэр.';
 
-  // Вставьте сюда ваш API-ключ OpenRouter
-  final String _apiKey = "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";
- 
+  final String _apiKey = "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"; 
   final String _apiUrl = "https://openrouter.ai/api/v1/chat/completions";
 
   @override
@@ -100,18 +98,11 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Запрос к OpenRouter API
   Future<void> _processCommandWithOpenRouter(String command) async {
     setState(() {
       _isThinking = true;
       _lastWords = "Запрос: \"$command\"\n[OpenRouter думает...]";
     });
-
-    if (_apiKey == "YOUR_OPENROUTER_API_KEY_HERE") {
-      setState(() => _isThinking = false);
-      _speak("Сэр, не указан API-ключ OpenRouter.");
-      return;
-    }
 
     try {
       final response = await http.post(
@@ -123,7 +114,7 @@ class _HomePageState extends State<HomePage> {
           'X-Title': 'Jarvis Voice Assistant',
         },
         body: jsonEncode({
-          "model": "deepseek/deepseek-chat:free", // Надежная бесплатная модель
+          "model": "meta-llama/llama-3.1-8b-instruct:free",
           "messages": [
             {
               "role": "system",
