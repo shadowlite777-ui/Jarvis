@@ -43,7 +43,6 @@ class _HomePageState extends State<HomePage> {
   late stt.SpeechToText _speech;
   bool _isListening = false;
   String _lastWords = 'Нажмите микрофон и скажите: "Джарвис, привет"';
-  String _selectedLocaleId = 'ru_RU';
 
   @override
   void initState() {
@@ -55,14 +54,9 @@ class _HomePageState extends State<HomePage> {
   // Настройка голоса «Джарвиса»
   void _initTts() async {
     _flutterTts = FlutterTts();
-    
-    // Пытаемся найти русский язык для синтеза
     await _flutterTts.setLanguage("ru-RU");
-    
-    // Тон Джарвиса: делаем голос глуше и солиднее (норма 1.0, ниже — грубее)
-    await _flutterTts.setPitch(0.68); 
-    // Четкий, размеренный темп речи
-    await _flutterTts.setSpeechRate(0.52);
+    await _flutterTts.setPitch(0.68); // Глубокий мужской тон
+    await _flutterTts.setSpeechRate(0.52); // Размеренный темп
     await _flutterTts.setVolume(1.0);
   }
 
@@ -70,33 +64,24 @@ class _HomePageState extends State<HomePage> {
     await _flutterTts.speak(text);
   }
 
-  // Инициализация слуха с автоопределением русской локали
+  // Инициализация слуха
   void _initSpeech() async {
     _speech = stt.SpeechToText();
-    bool available = await _speech.initialize(
-      onStatus: (val) => debugPrint('onStatus: $val'),
-      onError: (val) => debugPrint('onError: $val'),
-    );
-    
-    if (available) {
-      var locales = await _speech.locales();
-      // Ищем локаль, содержащую 'ru' (например ru_RU или ru-RU)
-      var russians = locales.where((l) => l.localeId.toLowerCase().contains('ru')).toList();
-      if (russians.isNotEmpty) {
-        setState(() {
-          _selectedLocaleId = russians.first.localeId;
-        });
-      }
-    }
   }
 
   void _listen() async {
     if (!_isListening) {
-      bool available = await _speech.initialize();
+      bool available = await _speech.initialize(
+        onStatus: (val) => debugPrint('onStatus: $val'),
+        onError: (val) => debugPrint('onError: $val'),
+      );
+      
       if (available) {
         setState(() => _isListening = true);
+        
+        // Убираем жесткий localeId, чтобы Google-сервисы на S25 Ultra 
+        // использовали основной системный язык телефона (который мы уже перевели на русский)
         _speech.listen(
-          localeId: _selectedLocaleId,
           onResult: (val) => setState(() {
             _lastWords = val.recognizedWords;
             if (val.finalResult && _lastWords.isNotEmpty) {
@@ -105,6 +90,10 @@ class _HomePageState extends State<HomePage> {
             }
           }),
         );
+      } else {
+        setState(() {
+          _lastWords = 'Ошибка: микрофон или движок недоступен';
+        });
       }
     } else {
       setState(() => _isListening = false);
@@ -163,7 +152,7 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
-                'Идентификация речи (RU)',
+                'Идентификация речи',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
