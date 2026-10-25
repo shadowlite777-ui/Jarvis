@@ -47,9 +47,10 @@ class _HomePageState extends State<HomePage> {
   bool _isThinking = false;
   String _lastWords = 'Нажмите микрофон и отдайте приказ, сэр.';
 
-  // Настройки DeepSeek API
-  final String _apiKey = "sk-4439b4053b054e0b8aa2f60c72a9b095"; 
-  final String _apiUrl = "https://api.deepseek.com/chat/completions";
+  // Настройки Yandex AI Studio (OpenAI-совместимый эндпоинт)
+  final String _apiKey = "AQVNz8h68jKaXR1S_kjAyDT-7SFNqTKxcwb_EeuQ";
+ // Вставьте ваш ключ
+  final String _apiUrl = "https://ai.api.cloud.yandex.net/v1/chat/completions";
 
   @override
   void initState() {
@@ -88,7 +89,7 @@ class _HomePageState extends State<HomePage> {
             _lastWords = val.recognizedWords;
             if (val.finalResult && _lastWords.isNotEmpty) {
               _isListening = false;
-              _processCommandWithLLM(_lastWords);
+              _processCommandWithAIStudio(_lastWords);
             }
           }),
         );
@@ -99,18 +100,18 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Запрос к DeepSeek API
-  Future<void> _processCommandWithLLM(String command) async {
+  // Запрос через OpenAI-совместимый API Yandex AI Studio
+  Future<void> _processCommandWithAIStudio(String command) async {
     setState(() {
       _isThinking = true;
-      _lastWords = "Запрос: \"$command\"\n[DeepSeek думает...]";
+      _lastWords = "Запрос: \"$command\"\n[AI Studio думает...]";
     });
 
-    if (_apiKey == "YOUR_DEEPSEEK_API_KEY_HERE") {
+    if (_apiKey == "YOUR_AI_STUDIO_API_KEY_HERE") {
       setState(() {
         _isThinking = false;
       });
-      _speak("Сэр, не указан API-ключ DeepSeek. Введите его в настройках кода.");
+      _speak("Сэр, не указан API-ключ Yandex AI Studio.");
       return;
     }
 
@@ -122,11 +123,11 @@ class _HomePageState extends State<HomePage> {
           'Authorization': 'Bearer $_apiKey',
         },
         body: jsonEncode({
-          "model": "deepseek-chat", // Основная языковая модель DeepSeek (V3)
+          "model": "yandexgpt", // Или укажите доступную модель из Model Gallery
           "messages": [
             {
               "role": "system",
-              "content": "You are JARVIS, an elite AI assistant. Respond in Russian. Be extremely concise, composed, loyal, and address the user as 'сэр' (sir). Keep responses short, suitable for voice playback (max 1-2 sentences)."
+              "content": "Ты — Джарвис, элитный искусственный интеллект. Отвечай по-русски. Будь предельно краток (максимум 1-2 предложения), собран, лоялен и обращайся к пользователю 'сэр'."
             },
             {
               "role": "user",
@@ -134,7 +135,7 @@ class _HomePageState extends State<HomePage> {
             }
           ],
           "max_tokens": 100,
-          "stream": false
+          "temperature": 0.6
         }),
       );
 
@@ -153,14 +154,17 @@ class _HomePageState extends State<HomePage> {
         _speak(answer);
       } else {
         debugPrint("API Error: ${response.body}");
-        _speak("Сэр, ошибка ответа сервера DeepSeek.");
+        setState(() {
+          _lastWords = "Ошибка (${response.statusCode}):\n${response.body}";
+        });
+        _speak("Сэр, ошибка сервера AI Studio. Код ${response.statusCode}");
       }
     } catch (e) {
       setState(() {
         _isThinking = false;
       });
       _speak("Сэр, сбой выполнения системного запроса.");
-      debugPrint("DeepSeek Error: $e");
+      debugPrint("AI Studio Error: $e");
     }
   }
 
@@ -193,7 +197,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Jarvis Core (DeepSeek)'),
+        title: const Text('Jarvis Core (AI Studio)'),
         backgroundColor: const Color(0xFF111111),
       ),
       body: Center(
@@ -203,7 +207,7 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
-                'Нейроядро: DeepSeek',
+                'Нейроядро: Yandex AI Studio',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
