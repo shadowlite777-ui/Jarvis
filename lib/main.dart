@@ -107,7 +107,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Получение OAuth-токена GigaChat
+  // Получение OAuth-токена GigaChat с выводом ошибки на экран
   Future<String?> _getGigaChatToken() async {
     try {
       final client = _createCustomClient();
@@ -127,13 +127,22 @@ class _HomePageState extends State<HomePage> {
         return data['access_token'];
       } else {
         debugPrint("Token Error: ${response.body}");
+        setState(() {
+          _isThinking = false;
+          _lastWords = "Ошибка токена (${response.statusCode}):\n${response.body}";
+        });
         return null;
       }
     } catch (e) {
       debugPrint("Token Exception: $e");
+      setState(() {
+        _isThinking = false;
+        _lastWords = "Исключение токена: $e";
+      });
       return null;
     }
   }
+
 
   // Запрос к GigaChat API
   Future<void> _processCommandWithGigaChat(String command) async {
