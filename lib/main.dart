@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const MyApp());
@@ -42,7 +44,12 @@ class _HomePageState extends State<HomePage> {
   late FlutterTts _flutterTts;
   late stt.SpeechToText _speech;
   bool _isListening = false;
-  String _lastWords = 'Нажмите микрофон и скажите: "Джарвис, привет"';
+  bool _isThinking = false;
+  String _lastWords = 'Нажмите микрофон и отдайте приказ, сэр.';
+
+  // Настройки LLM (сюда можно подставить ваш ключ и URL, например OpenAI или OpenRouter)
+  final String _apiKey = "YOUR_API_KEY_HERE"; 
+  final String _apiUrl = "https://api.openai.com/v1/chat/completions";
 
   @override
   void initState() {
@@ -51,12 +58,11 @@ class _HomePageState extends State<HomePage> {
     _initSpeech();
   }
 
-  // Настройка голоса «Джарвиса»
   void _initTts() async {
     _flutterTts = FlutterTts();
     await _flutterTts.setLanguage("ru-RU");
-    await _flutterTts.setPitch(0.68); // Глубокий мужской тон
-    await _flutterTts.setSpeechRate(0.52); // Размеренный темп
+    await _flutterTts.setPitch(0.68); // Глубокий, солидный тон
+    await _flutterTts.setSpeechRate(0.52);
     await _flutterTts.setVolume(1.0);
   }
 
@@ -64,7 +70,6 @@ class _HomePageState extends State<HomePage> {
     await _flutterTts.speak(text);
   }
 
-  // Инициализация слуха
   void _initSpeech() async {
     _speech = stt.SpeechToText();
   }
@@ -78,22 +83,15 @@ class _HomePageState extends State<HomePage> {
       
       if (available) {
         setState(() => _isListening = true);
-        
-        // Убираем жесткий localeId, чтобы Google-сервисы на S25 Ultra 
-        // использовали основной системный язык телефона (который мы уже перевели на русский)
         _speech.listen(
           onResult: (val) => setState(() {
             _lastWords = val.recognizedWords;
             if (val.finalResult && _lastWords.isNotEmpty) {
               _isListening = false;
-              _processCommand(_lastWords);
+              _processCommandWithLLM(_lastWords);
             }
           }),
         );
-      } else {
-        setState(() {
-          _lastWords = 'Ошибка: микрофон или движок недоступен';
-        });
       }
     } else {
       setState(() => _isListening = false);
@@ -101,15 +99,67 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Обработка команд в стиле Джарвиса
-  void _processCommand(String command) {
-    String lowerCmd = command.toLowerCase();
-    if (lowerCmd.contains('привет') || lowerCmd.contains('джарвис')) {
-      _speak("Сэр, системы функционируют нормально. Чем могу помочь?");
-    } else if (lowerCmd.contains('статус') || lowerCmd.contains('как дела')) {
-      _speak("Все подсистемы активны, сэр. Ядро работает в штатном режиме.");
-    } else {
-      _speak("Команда принята, сэр. Распознано: $command");
+  // Интеллектуальный обработчик через LLM (Мозг Джарвиса)
+  Future<void> _processCommandWithLLM(String command) async {
+    setState(() {
+      _isThinking = true;
+      _lastWords = "Запрос: \"$command\"\n[Обработка нейросетью...]";
+    });
+
+    if (_apiKey == "YOUR_API_KEY_HERE") {
+      setState(() {
+        _isThinking = false;
+      });
+      _speak("Сэр, не настроен ключ доступа к нейросети. Укажите API ключ в коде.");
+      return;
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse(_apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_apiKey',
+        },
+        body: jsonEncode({
+          "model": "gpt-4o-mini",
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are JARVIS, an elite AI assistant. Respond in Russian. Be extremely concise, composed, loyal, and address the user as 'сэр' (sir). Keep responses short, suitable for voice playback (max 1-2 sentences)."
+            },
+            {
+              "role": "user",
+              "content": command
+            }
+          ],
+          "max_tokens": 100,
+          "temperature": 0.7,
+        }),
+      );
+
+      setState(() {
+        _isThinking = false;
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        String answer = data['choices'][0]['message']['content'].trim();
+        
+        setState(() {
+          _lastWords = answer;
+        });
+        
+        _speak(answer);
+      } else {
+        _speak("Сэр, произошла ошибка связи с сервером нейросети.");
+      }
+    } catch (e) {
+      setState(() {
+        _isThinking = false;
+      });
+      _speak("Сэр, сбой выполнения системного запроса.");
+      debugPrint("LLM Error: $e");
     }
   }
 
@@ -142,7 +192,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Jarvis Core System'),
+        title: const Text('Jarvis Core System (LLM)'),
         backgroundColor: const Color(0xFF111111),
       ),
       body: Center(
@@ -152,7 +202,7 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
-                'Идентификация речи',
+                'Нейросетевое ядро',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -167,15 +217,17 @@ class _HomePageState extends State<HomePage> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.orange.withOpacity(0.3)),
                 ),
-                child: Text(
-                  _lastWords,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16, color: Colors.white70),
-                ),
+                child: _isThinking
+                    ? const CircularProgressIndicator(color: Colors.orange)
+                    : Text(
+                        _lastWords,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 16, color: Colors.white70),
+                      ),
               ),
               const SizedBox(height: 30),
               FloatingActionButton(
-                onPressed: _listen,
+                onPressed: _isThinking ? null : _listen,
                 backgroundColor: Colors.orange,
                 child: Icon(
                   _isListening ? Icons.mic : Icons.mic_none,
@@ -187,7 +239,7 @@ class _HomePageState extends State<HomePage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
+                  style: ElevatedButton.styleForm(
                     backgroundColor: Colors.orange,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -200,7 +252,7 @@ class _HomePageState extends State<HomePage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
+                  style: ElevatedButton.styleForm(
                     backgroundColor: const Color(0xFF2A2A2A),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -213,7 +265,7 @@ class _HomePageState extends State<HomePage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
+                  style: ElevatedButton.styleForm(
                     backgroundColor: const Color(0xFF2A2A2A),
                     foregroundColor: Colors.orange,
                     padding: const EdgeInsets.symmetric(vertical: 14),
