@@ -1,11 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:http/http.dart' as http;
-import 'package:http/io_client.dart';
 
 void main() {
   runApp(const MyApp());
@@ -49,8 +47,10 @@ class _HomePageState extends State<HomePage> {
   bool _isThinking = false;
   String _lastWords = 'Нажмите микрофон и отдайте приказ, сэр.';
 
-  // Вставьте сюда ваш полученный Authorization Key от GigaChat
-  final String _authorizationKey = "MDFhMTczNmYtNmUzMi03ZjhkLTlmNDAtOWIyYmZjMmE2MTE2OjgxMGMyZWVmLWEzMjYtNGVmMi1hYzI2LWM2MWJkNmRhMWQxOQ=="; 
+  // Вставьте сюда ваш API-ключ OpenRouter
+  final String _apiKey = "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";
+ 
+  final String _apiUrl = "https://openrouter.ai/api/v1/chat/completions";
 
   @override
   void initState() {
@@ -75,13 +75,6 @@ class _HomePageState extends State<HomePage> {
     _speech = stt.SpeechToText();
   }
 
-  // Создаем HTTP-клиент с доверием к сертификатам Сбера
-  http.Client _createCustomClient() {
-    HttpClient httpClient = HttpClient()
-      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
-    return IOClient(httpClient);
-  }
-
   void _listen() async {
     if (!_isListening) {
       bool available = await _speech.initialize(
@@ -96,7 +89,7 @@ class _HomePageState extends State<HomePage> {
             _lastWords = val.recognizedWords;
             if (val.finalResult && _lastWords.isNotEmpty) {
               _isListening = false;
-              _processCommandWithGigaChat(_lastWords);
+              _processCommandWithOpenRouter(_lastWords);
             }
           }),
         );
@@ -107,83 +100,30 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-    // Получение OAuth-токена GigaChat с полным выводом ответа сервера
-  Future<String?> _getGigaChatToken() async {
-    try {
-      final client = _createCustomClient();
-      
-      // Попробуйте изменить scope на "GIGACHAT_API_B2B", если у вас корпоративный аккаунт
-      const String currentScope = "GIGACHAT_API_PERS"; 
-
-      final response = await client.post(
-        Uri.parse('https://ngw.devices.sberbank.ru:9443/api/v2/oauth'),
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Accept': 'application/json',
-          'RqUID': DateTime.now().millisecondsSinceEpoch.toString(),
-          'Authorization': 'Basic $_authorizationKey',
-        },
-        body: {'scope': currentScope},
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['access_token'];
-      } else {
-        debugPrint("Token Error Body: ${response.body}");
-        setState(() {
-          _isThinking = false;
-          _lastWords = "Ошибка 400 от Сбера:\n${response.body}";
-        });
-        return null;
-      }
-    } catch (e) {
-      debugPrint("Token Exception: $e");
-      setState(() {
-        _isThinking = false;
-        _lastWords = "Исключение: $e";
-      });
-      return null;
-    }
-  }
-
-
-
-  // Запрос к GigaChat API
-  Future<void> _processCommandWithGigaChat(String command) async {
+  // Запрос к OpenRouter API
+  Future<void> _processCommandWithOpenRouter(String command) async {
     setState(() {
       _isThinking = true;
-      _lastWords = "Запрос: \"$command\"\n[GigaChat думает...]";
+      _lastWords = "Запрос: \"$command\"\n[OpenRouter думает...]";
     });
 
-    if (_authorizationKey == "YOUR_GIGACHAT_AUTH_KEY_HERE") {
-      setState(() {
-        _isThinking = false;
-      });
-      _speak("Сэр, не указан ключ авторизации GigaChat.");
+    if (_apiKey == "YOUR_OPENROUTER_API_KEY_HERE") {
+      setState(() => _isThinking = false);
+      _speak("Сэр, не указан API-ключ OpenRouter.");
       return;
     }
 
     try {
-      // Шаг 1: Получаем токен
-      String? accessToken = await _getGigaChatToken();
-      if (accessToken == null) {
-        setState(() => _isThinking = false);
-        _speak("Сэр, ошибка авторизации в GigaChat.");
-        return;
-      }
-
-      // Шаг 2: Отправляем текстовый запрос
-      final client = _createCustomClient();
-      final response = await client.post(
-        Uri.parse('https://gigachat.devices.sberbank.ru/api/v1/chat/completions'),
+      final response = await http.post(
+        Uri.parse(_apiUrl),
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $accessToken',
+          'Authorization': 'Bearer $_apiKey',
+          'HTTP-Referer': 'https://github.com/jarvis-assistant',
+          'X-Title': 'Jarvis Voice Assistant',
         },
         body: jsonEncode({
-          "model": "GigaChat",
+          "model": "deepseek/deepseek-chat:free", // Надежная бесплатная модель
           "messages": [
             {
               "role": "system",
@@ -195,14 +135,11 @@ class _HomePageState extends State<HomePage> {
             }
           ],
           "max_tokens": 100,
-          "temperature": 0.6,
-          "stream": false
+          "temperature": 0.6
         }),
       );
 
-      setState(() {
-        _isThinking = false;
-      });
+      setState(() => _isThinking = false);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -218,14 +155,12 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           _lastWords = "Ошибка (${response.statusCode}):\n${response.body}";
         });
-        _speak("Сэр, ошибка сервера GigaChat. Код ${response.statusCode}");
+        _speak("Сэр, ошибка сервера OpenRouter. Код ${response.statusCode}");
       }
     } catch (e) {
-      setState(() {
-        _isThinking = false;
-      });
+      setState(() => _isThinking = false);
       _speak("Сэр, сбой выполнения системного запроса.");
-      debugPrint("GigaChat Error: $e");
+      debugPrint("OpenRouter Error: $e");
     }
   }
 
@@ -258,7 +193,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Jarvis Core (GigaChat)'),
+        title: const Text('Jarvis Core (OpenRouter)'),
         backgroundColor: const Color(0xFF111111),
       ),
       body: Center(
@@ -268,7 +203,7 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
-                'Нейроядро: GigaChat',
+                'Нейроядро: OpenRouter',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
