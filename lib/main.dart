@@ -47,9 +47,9 @@ class _HomePageState extends State<HomePage> {
   bool _isThinking = false;
   String _lastWords = 'Нажмите микрофон и отдайте приказ, сэр.';
 
-  // Настройки Yandex AI Studio (OpenAI-совместимый эндпоинт)
-  final String _apiKey = "AQVNz8h68jKaXR1S_kjAyDT-7SFNqTKxcwb_EeuQ";
- // Вставьте ваш ключ
+  // Настройки Yandex AI Studio
+  final String _apiKey = "AQVN2l_n2_ustApPTXgKhT_bYo6bBhiz8Nnw1A9T";  // Ваш API-ключ
+  final String _folderId = "organization-blizzard-274"; // Ваш Folder ID (например, b1g...)
   final String _apiUrl = "https://ai.api.cloud.yandex.net/v1/chat/completions";
 
   @override
@@ -62,7 +62,7 @@ class _HomePageState extends State<HomePage> {
   void _initTts() async {
     _flutterTts = FlutterTts();
     await _flutterTts.setLanguage("ru-RU");
-    await _flutterTts.setPitch(0.68); // Глубокий, солидный тон
+    await _flutterTts.setPitch(0.68);
     await _flutterTts.setSpeechRate(0.52);
     await _flutterTts.setVolume(1.0);
   }
@@ -100,18 +100,17 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Запрос через OpenAI-совместимый API Yandex AI Studio
   Future<void> _processCommandWithAIStudio(String command) async {
     setState(() {
       _isThinking = true;
       _lastWords = "Запрос: \"$command\"\n[AI Studio думает...]";
     });
 
-    if (_apiKey == "YOUR_AI_STUDIO_API_KEY_HERE") {
+    if (_apiKey == "YOUR_AI_STUDIO_API_KEY_HERE" || _folderId == "YOUR_YANDEX_FOLDER_ID_HERE") {
       setState(() {
         _isThinking = false;
       });
-      _speak("Сэр, не указан API-ключ Yandex AI Studio.");
+      _speak("Сэр, не указаны ключи доступа или Folder ID в коде.");
       return;
     }
 
@@ -123,7 +122,7 @@ class _HomePageState extends State<HomePage> {
           'Authorization': 'Bearer $_apiKey',
         },
         body: jsonEncode({
-          "model": "yandexgpt", // Или укажите доступную модель из Model Gallery
+          "model": "gpt://$_folderId/yandexgpt/latest", // Правильный URI модели
           "messages": [
             {
               "role": "system",
