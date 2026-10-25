@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 
 void main() {
   runApp(const MyApp());
@@ -47,10 +49,8 @@ class _HomePageState extends State<HomePage> {
   bool _isThinking = false;
   String _lastWords = 'Нажмите микрофон и отдайте приказ, сэр.';
 
-  // Настройки Yandex AI Studio
-  final String _apiKey = "AQVN2l_n2_ustApPTXgKhT_bYo6bBhiz8Nnw1A9T";  // Ваш API-ключ
-  final String _folderId = "b1g20jj780fsmdquls09"; // Ваш Folder ID (например, b1g...)
-  final String _apiUrl = "https://ai.api.cloud.yandex.net/v1/chat/completions";
+  // Вставьте сюда ваш полученный Authorization Key от GigaChat
+  final String _authorizationKey = "MDFhMTczNmYtNmUzMi03ZjhkLTlmNDAtOWIyYmZjMmE2MTE2OjgxMGMyZWVmLWEzMjYtNGVmMi1hYzI2LWM2MWJkNmRhMWQxOQ=="; 
 
   @override
   void initState() {
@@ -75,6 +75,13 @@ class _HomePageState extends State<HomePage> {
     _speech = stt.SpeechToText();
   }
 
+  // Создаем HTTP-клиент с доверием к сертификатам Сбера
+  http.Client _createCustomClient() {
+    HttpClient httpClient = HttpClient()
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+    return IOClient(httpClient);
+  }
+
   void _listen() async {
     if (!_isListening) {
       bool available = await _speech.initialize(
@@ -89,7 +96,7 @@ class _HomePageState extends State<HomePage> {
             _lastWords = val.recognizedWords;
             if (val.finalResult && _lastWords.isNotEmpty) {
               _isListening = false;
-              _processCommandWithAIStudio(_lastWords);
+              _processCommandWithGigaChat(_lastWords);
             }
           }),
         );
@@ -100,29 +107,69 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _processCommandWithAIStudio(String command) async {
+  // Получение OAuth-токена GigaChat
+  Future<String?> _getGigaChatToken() async {
+    try {
+      final client = _createCustomClient();
+      final response = await client.post(
+        Uri.parse('https://ngw.devices.sberbank.ru:9443/api/v2/oauth'),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+          'RqUID': DateTime.now().millisecondsSinceEpoch.toString(),
+          'Authorization': 'Basic $_authorizationKey',
+        },
+        body: {'scope': 'GIGACHAT_API_PERS'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['access_token'];
+      } else {
+        debugPrint("Token Error: ${response.body}");
+        return null;
+      }
+    } catch (e) {
+      debugPrint("Token Exception: $e");
+      return null;
+    }
+  }
+
+  // Запрос к GigaChat API
+  Future<void> _processCommandWithGigaChat(String command) async {
     setState(() {
       _isThinking = true;
-      _lastWords = "Запрос: \"$command\"\n[AI Studio думает...]";
+      _lastWords = "Запрос: \"$command\"\n[GigaChat думает...]";
     });
 
-    if (_apiKey == "YOUR_AI_STUDIO_API_KEY_HERE" || _folderId == "YOUR_YANDEX_FOLDER_ID_HERE") {
+    if (_authorizationKey == "YOUR_GIGACHAT_AUTH_KEY_HERE") {
       setState(() {
         _isThinking = false;
       });
-      _speak("Сэр, не указаны ключи доступа или Folder ID в коде.");
+      _speak("Сэр, не указан ключ авторизации GigaChat.");
       return;
     }
 
     try {
-      final response = await http.post(
-        Uri.parse(_apiUrl),
+      // Шаг 1: Получаем токен
+      String? accessToken = await _getGigaChatToken();
+      if (accessToken == null) {
+        setState(() => _isThinking = false);
+        _speak("Сэр, ошибка авторизации в GigaChat.");
+        return;
+      }
+
+      // Шаг 2: Отправляем текстовый запрос
+      final client = _createCustomClient();
+      final response = await client.post(
+        Uri.parse('https://gigachat.devices.sberbank.ru/api/v1/chat/completions'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_apiKey',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $accessToken',
         },
         body: jsonEncode({
-          "model": "gpt://$_folderId/yandexgpt/latest", // Правильный URI модели
+          "model": "GigaChat",
           "messages": [
             {
               "role": "system",
@@ -134,7 +181,8 @@ class _HomePageState extends State<HomePage> {
             }
           ],
           "max_tokens": 100,
-          "temperature": 0.6
+          "temperature": 0.6,
+          "stream": false
         }),
       );
 
@@ -156,14 +204,14 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           _lastWords = "Ошибка (${response.statusCode}):\n${response.body}";
         });
-        _speak("Сэр, ошибка сервера AI Studio. Код ${response.statusCode}");
+        _speak("Сэр, ошибка сервера GigaChat. Код ${response.statusCode}");
       }
     } catch (e) {
       setState(() {
         _isThinking = false;
       });
       _speak("Сэр, сбой выполнения системного запроса.");
-      debugPrint("AI Studio Error: $e");
+      debugPrint("GigaChat Error: $e");
     }
   }
 
@@ -196,7 +244,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Jarvis Core (AI Studio)'),
+        title: const Text('Jarvis Core (GigaChat)'),
         backgroundColor: const Color(0xFF111111),
       ),
       body: Center(
@@ -206,7 +254,7 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
-                'Нейроядро: Yandex AI Studio',
+                'Нейроядро: GigaChat',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
